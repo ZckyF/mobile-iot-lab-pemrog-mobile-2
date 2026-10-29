@@ -6,17 +6,17 @@
 #include <BLE2902.h>
 #include <DHT.h>
 
-#define LED_PIN 26
-#define DHT_PIN 4
-#define DHT_TYPE DHT22
+#define LED_PIN 5 // 5
+#define DHT_PIN 4 // 4
+#define DHT_TYPE DHT11
 #define TEMP_THRESHOLD 30.0 // Batas suhu untuk alarm tugas pengembangan
 
-const char *WIFI_SSID = "NAMA_WIFI";
-const char *WIFI_PASS = "PASSWORD_WIFI";
+const char *WIFI_SSID = "realme C17";
+const char *WIFI_PASS = "wifikubro3211";
 const char *MQTT_HOST = "broker.emqx.io";
 const int   MQTT_PORT = 1883;
-const char *KELOMPOK  = "kel1";
-const char *BLE_NAME  = "ESP32-OIT-KEL1";
+const char *KELOMPOK  = "kel4";
+const char *BLE_NAME  = "ESP32-OIT-KEL4";
 
 #define SERVICE_UUID "12345678-1234-5678-1234-56789abcdef0"
 #define LED_UUID     "12345678-1234-5678-1234-56789abcdef1"

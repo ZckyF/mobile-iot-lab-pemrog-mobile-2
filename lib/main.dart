@@ -1,3 +1,10 @@
+// import 'package:flutter/material.dart';
+// import 'ble_page.dart';
+// void main() => runApp(const MaterialApp(
+//   title: 'Mobile IoT Lab',
+//   home: Scaffold(body: SafeArea(child: BlePage())),
+// ));
+
 import 'package:flutter/material.dart';
 import 'ble_page.dart';
 import 'mqtt_page.dart';
@@ -22,7 +29,7 @@ class HomeState extends State<Home> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mobile IoT Lab (Custom Theme)'),
+        title: const Text('Mobile IoT Lab'),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
       ),

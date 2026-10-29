@@ -4,9 +4,9 @@
 #include <BLE2902.h>
 #include <DHT.h>
 
-#define LED_PIN 26
-#define DHT_PIN 4
-#define DHT_TYPE DHT22 // Ganti DHT11 jika memakai DHT11[cite: 6]
+#define LED_PIN 20 //5
+#define DHT_PIN 21 //4
+#define DHT_TYPE DHT11 // Ganti DHT11 jika memakai DHT11
 
 #define SERVICE_UUID "12345678-1234-5678-1234-56789abcdef0"
 #define LED_UUID     "12345678-1234-5678-1234-56789abcdef1"
@@ -25,7 +25,7 @@ class ServerCb: public BLEServerCallbacks {
   void onDisconnect(BLEServer *s) {
     deviceConnected = false;
     Serial.println("BLE: client terputus");
-    BLEDevice::startAdvertising(); // Agar bisa dihubungi lagi[cite: 7]
+    BLEDevice::startAdvertising(); // Agar bisa dihubungi lagi
   }
 };
 
@@ -42,6 +42,7 @@ class LedCb: public BLECharacteristicCallbacks {
 
 void setup() {
   Serial.begin(115200);
+  delay(2000);
   pinMode(LED_PIN, OUTPUT);
   dht.begin();
 
@@ -69,21 +70,49 @@ void setup() {
   adv->addServiceUUID(SERVICE_UUID);
   adv->setScanResponse(true);
   BLEDevice::startAdvertising();
-  Serial.println("BLE advertising: ESP32-OIT-KEL1 siap ditemukan");
+  Serial.println("BLE advertising: ESP32-OIT-KEL5 siap ditemukan");
 }
 
+// void loop() {
+//   if (deviceConnected && millis() - lastSend >= 2000) {
+//     lastSend = millis();
+//     float t = dht.readTemperature();
+//     float h = dht.readHumidity();
+
+//     if (!isnan(t) && !isnan(h)) {
+//       char buf[24];
+//       snprintf(buf, sizeof(buf), "%.1f;%.1f", t, h);
+//       sensorChar->setValue((uint8_t *)buf, strlen(buf));
+//       sensorChar->notify();
+//       Serial.printf("Notify: %s\n", buf);
+//     }
+//   }
+// }
 void loop() {
-  if (deviceConnected && millis() - lastSend >= 2000) {
+  // Setiap interval 2 detik, baca sensor terlepas dari status koneksi BLE
+  if (millis() - lastSend >= 2000) {
     lastSend = millis();
+    
     float t = dht.readTemperature();
     float h = dht.readHumidity();
 
+    // Cek apakah pembacaan sensor valid (tidak NaN)
     if (!isnan(t) && !isnan(h)) {
       char buf[24];
       snprintf(buf, sizeof(buf), "%.1f;%.1f", t, h);
-      sensorChar->setValue((uint8_t *)buf, strlen(buf));
-      sensorChar->notify();
-      Serial.printf("Notify: %s\n", buf);
+      
+      // Cetak ke Serial Monitor secara rutin setiap 2 detik
+      Serial.printf("Suhu: %.1f °C | Kelembapan: %.1f %%\n", t, h);
+
+      // Kirim via BLE Notify HANYA JIKA ada client yang terhubung
+      if (deviceConnected) {
+        sensorChar->setValue((uint8_t *)buf, strlen(buf));
+        sensorChar->notify();
+        Serial.printf(" -> Sent via BLE Notify: %s\n", buf);
+      }
+    } else {
+      // Jika sensor gagal terbaca (kabel longgar / pin salah)
+      Serial.println("Gagal membaca sensor DHT11! Cek kembali kabel/pin.");
     }
   }
 }

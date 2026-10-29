@@ -4,8 +4,9 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
+import 'package:fl_chart/fl_chart.dart';
 
-const kelompok = 'kel5';
+const kelompok = 'kel4';
 const host = 'broker.emqx.io';
 const tSensor = 'polnes/oit/$kelompok/sensor';
 const tLed = 'polnes/oit/$kelompok/led';
@@ -28,6 +29,8 @@ class _MqttPageState extends State<MqttPage> {
   String _latMqtt = '-';
   Completer<void>? _waiting;
   String _expect = '';
+
+  final List<double> _suhuHistory = [];
 
   Future<void> _connect() async {
     final id = 'flutter-$kelompok-${DateTime.now().millisecondsSinceEpoch}';
@@ -69,8 +72,15 @@ class _MqttPageState extends State<MqttPage> {
     setState(() {
       if (topic == tSensor) {
         final j = jsonDecode(text);
-        _suhu = j['suhu'].toString();
+        final double suhuVal = double.tryParse(j['suhu'].toString()) ?? 0.0;
+        
+        _suhu = suhuVal.toString();
         _hum = j['hum'].toString();
+
+        _suhuHistory.add(suhuVal);
+        if (_suhuHistory.length > 20) {
+          _suhuHistory.removeAt(0);
+        }
       } else if (topic == tLedState) {
         _ledon = text == 'ON';
         if (_waiting != null && !_waiting!.isCompleted && text == _expect) {
@@ -107,9 +117,7 @@ class _MqttPageState extends State<MqttPage> {
         await _waiting!.future.timeout(const Duration(seconds: 3));
         sw.stop();
         samples.add(sw.elapsedMilliseconds);
-      } on TimeoutException {
-        // Sampel dibuang jika timeout
-      }
+      } on TimeoutException {}
       await Future.delayed(const Duration(milliseconds: 500));
     }
 
@@ -131,7 +139,7 @@ class _MqttPageState extends State<MqttPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -175,6 +183,74 @@ class _MqttPageState extends State<MqttPage> {
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            
+            const Text('Grafik Riwayat Suhu MQTT (20 Data Terakhir)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            const SizedBox(height: 8),
+            Container(
+              height: 210,
+              padding: const EdgeInsets.only(top: 16, right: 16, bottom: 8, left: 4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: _suhuHistory.isEmpty
+                  ? const Center(child: Text('Menunggu data sensor MQTT...'))
+                  : LineChart(
+                      LineChartData(
+                        gridData: FlGridData(
+                          show: true,
+                          drawVerticalLine: true,
+                          getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+                          getDrawingVerticalLine: (value) => FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+                        ),
+                        titlesData: FlTitlesData(
+                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 22,
+                              interval: 5, // Tampilkan label X tiap kelipatan 5 data agar tidak dempet
+                              getTitlesWidget: (value, meta) {
+                                return Text(value.toInt().toString(), style: const TextStyle(fontSize: 10, color: Colors.grey));
+                              },
+                            ),
+                          ),
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 32,
+                              getTitlesWidget: (value, meta) {
+                                return Text('${value.toInt()}°', style: const TextStyle(fontSize: 10, color: Colors.grey));
+                              },
+                            ),
+                          ),
+                        ),
+                        borderData: FlBorderData(show: true, border: Border.all(color: Colors.orange.shade100)),
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: _suhuHistory
+                                .asMap()
+                                .entries
+                                .map((e) => FlSpot(e.key.toDouble(), e.value))
+                                .toList(),
+                            isCurved: true,
+                            color: Colors.orange.shade800,
+                            barWidth: 3,
+                            dotData: const FlDotData(show: true),
+                            belowBarData: BarAreaData(
+                              show: true,
+                              color: Colors.orange.shade800.withOpacity(0.15),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+            ),
+
             const SizedBox(height: 12),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white),
@@ -184,7 +260,7 @@ class _MqttPageState extends State<MqttPage> {
             ),
             const SizedBox(height: 6),
             Text('Latensi: $_latMqtt', style: const TextStyle(fontSize: 13, color: Colors.grey)),
-            const Spacer(),
+            const SizedBox(height: 20),
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
               onPressed: () => _client?.disconnect(),

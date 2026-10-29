@@ -2,15 +2,15 @@
 #include <PubSubClient.h>
 #include <DHT.h>
 
-#define LED_PIN 26
-#define DHT_PIN 4
-#define DHT_TYPE DHT22
+#define LED_PIN 20 // 5
+#define DHT_PIN 21 // 4
+#define DHT_TYPE DHT11
 
-const char *WIFI_SSID = "NAMA_WIFI";
-const char *WIFI_PASS = "PASSWORD_WIFI";
+const char *WIFI_SSID = "POCO F5";
+const char *WIFI_PASS = "aldi27ks";
 const char *MQTT_HOST = "broker.emqx.io";
 const int   MQTT_PORT = 1883;
-const char *KELOMPOK  = "kel1";
+const char *KELOMPOK  = "kel5";
 
 char tSensor[64], tLed[64], tLedState[64], tStatus[64];
 DHT dht(DHT_PIN, DHT_TYPE);

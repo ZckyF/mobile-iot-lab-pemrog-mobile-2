@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 const serviceUuid = '12345678-1234-5678-1234-56789abcdef0';
 const ledUuid = '12345678-1234-5678-1234-56789abcdef1';
@@ -26,6 +27,8 @@ class BlePageState extends State<BlePage> {
   String _suhu = '-', _hum = '-';
   String _status = 'Belum terhubung';
   String _latBle = '-';
+
+  final List<double> _suhuBleHistory = [];
 
   Future<void> _scan() async {
     await [
@@ -52,7 +55,6 @@ class BlePageState extends State<BlePage> {
     });
 
     await FlutterBluePlus.startScan(
-      withServices: [Guid(serviceUuid)],
       timeout: const Duration(seconds: 6),
     );
 
@@ -93,9 +95,15 @@ class BlePageState extends State<BlePage> {
           _notifySub = c.onValueReceived.listen((v) {
             final p = utf8.decode(v).split(';');
             if (p.length == 2 && mounted) {
+              final double suhuVal = double.tryParse(p[0]) ?? 0.0;
               setState(() {
-                _suhu = p[0];
+                _suhu = suhuVal.toString();
                 _hum = p[1];
+
+                _suhuBleHistory.add(suhuVal);
+                if (_suhuBleHistory.length > 20) {
+                  _suhuBleHistory.removeAt(0);
+                }
               });
             }
           });
@@ -145,7 +153,7 @@ class BlePageState extends State<BlePage> {
   @override
   Widget build(BuildContext context) {
     final connected = _device != null;
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -166,7 +174,8 @@ class BlePageState extends State<BlePage> {
               label: Text(_scanning ? 'Memindai...' : 'Scan perangkat'),
             ),
             const SizedBox(height: 10),
-            Expanded(
+            SizedBox(
+              height: 350,
               child: ListView(
                 children: results.map((r) {
                   final name = r.device.platformName.isEmpty
@@ -203,6 +212,74 @@ class BlePageState extends State<BlePage> {
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            
+            const Text('Grafik Riwayat Suhu BLE (20 Data Terakhir)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            const SizedBox(height: 8),
+            Container(
+              height: 210,
+              padding: const EdgeInsets.only(top: 16, right: 16, bottom: 8, left: 4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.teal.shade200),
+              ),
+              child: _suhuBleHistory.isEmpty
+                  ? const Center(child: Text('Menunggu data sensor BLE...'))
+                  : LineChart(
+                      LineChartData(
+                        gridData: FlGridData(
+                          show: true,
+                          drawVerticalLine: true,
+                          getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+                          getDrawingVerticalLine: (value) => FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+                        ),
+                        titlesData: FlTitlesData(
+                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 22,
+                              interval: 5,
+                              getTitlesWidget: (value, meta) {
+                                return Text(value.toInt().toString(), style: const TextStyle(fontSize: 10, color: Colors.grey));
+                              },
+                            ),
+                          ),
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 32,
+                              getTitlesWidget: (value, meta) {
+                                return Text('${value.toInt()}°', style: const TextStyle(fontSize: 10, color: Colors.grey));
+                              },
+                            ),
+                          ),
+                        ),
+                        borderData: FlBorderData(show: true, border: Border.all(color: Colors.teal.shade100)),
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: _suhuBleHistory
+                                .asMap()
+                                .entries
+                                .map((e) => FlSpot(e.key.toDouble(), e.value))
+                                .toList(),
+                            isCurved: true,
+                            color: Colors.teal,
+                            barWidth: 3,
+                            dotData: const FlDotData(show: true),
+                            belowBarData: BarAreaData(
+                              show: true,
+                              color: Colors.teal.withOpacity(0.15),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+            ),
+
             const SizedBox(height: 12),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.amber.shade700, foregroundColor: Colors.white),
@@ -212,7 +289,7 @@ class BlePageState extends State<BlePage> {
             ),
             const SizedBox(height: 6),
             Text('Latensi: $_latBle', style: const TextStyle(fontSize: 13, color: Colors.grey)),
-            const Spacer(),
+            const SizedBox(height: 20),
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
               onPressed: _disconnect,
